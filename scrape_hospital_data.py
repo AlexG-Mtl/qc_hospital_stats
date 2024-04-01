@@ -4,6 +4,7 @@ import json
 
 # Base URL before the page parameter
 base_url = 'https://www.quebec.ca/en/health/health-system-and-services/service-organization/quebec-health-system-and-its-services/situation-in-emergency-rooms-in-quebec'
+print("Base URL set.")
 
 # Parameters common to all requests
 params = {
@@ -12,19 +13,25 @@ params = {
     'tx_solr[pt]': '',
     'tx_solr[sfield]': 'geolocation_location'
 }
+print("Parameters initialized.")
 
 # Initialize an empty list to hold all hospital data
 all_hospitals = []
+print("Hospital list initialized.")
 
 # Fetch the first page to get the "Last update" information
+print("Fetching initial page for 'Last update' information...")
 response = requests.get(base_url, params=params)
 soup = BeautifulSoup(response.text, 'html.parser')
 
 # Extract the "Last update" information
 last_update_info = soup.find('div', class_='last-update-info').get_text(strip=True, separator=" ").replace("Last update: ", "", 1)
+print(f"Last update: {last_update_info}")
 
 # Loop through pages 1 to 11
+print("Beginning data collection across pages...")
 for page in range(1, 12):
+    print(f"Fetching data for page {page}...")
     params['tx_solr[page]'] = page  # Set the current page in the parameters
     response = requests.get(base_url, params=params)
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -52,6 +59,9 @@ for page in range(1, 12):
             hospital_info[key] = value
 
         all_hospitals.append(hospital_info)
+    print(f"Page {page} data fetched and processed.")
+
+print(f"Collected data for {len(all_hospitals)} hospitals.")
 
 # Add the "Last update" information to the output
 output = {
@@ -61,6 +71,7 @@ output = {
 
 # Convert all collected data to JSON
 json_data = json.dumps(output, indent=4)
+print("Data converted to JSON format.")
 
 # Specify the output file name
 output_file_name = 'hospital_data.json'
@@ -70,3 +81,4 @@ with open(output_file_name, "w") as json_file:
     json_file.write(json_data)
 
 print(f'Data saved to {output_file_name}')
+
