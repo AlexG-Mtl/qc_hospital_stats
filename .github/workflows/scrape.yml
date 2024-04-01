@@ -26,25 +26,36 @@ jobs:
       - name: Fetch latest data
         run: python scrape_hospital_data.py
 
-      - name: Check if hospital_data.json has changed
+      - name: Detect changes and stage files
         id: file_check
         run: |
-          git diff --name-only | grep hospital_data.json && echo "::set-output name=changed::true" || echo "::set-output name=changed::false"
+          git add .  # Stage all changes, including new files.
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+            echo "::set-output name=changed::false"
+          else
+            echo "Changes detected, preparing to commit."
+            echo "::set-output name=changed::true"
+          fi
+
+      - name: Generate timestamp for commit message
+        if: steps.file_check.outputs.changed == 'true'
+        run: echo "TIMESTAMP=$(date -u +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
 
       - name: Copy hospital_data.json with timestamp if changed
         if: steps.file_check.outputs.changed == 'true'
         run: |
           mkdir -p data
-          timestamp=$(date -u +'%Y%m%d%H%M%S')
-          cp hospital_data.json data/hospital_data_${timestamp}.json
-          git add data/hospital_data_${timestamp}.json
-          echo "hospital_data.json copied with timestamp."
+          cp hospital_data.json data/hospital_data_${TIMESTAMP}.json
+          git add data/hospital_data_${TIMESTAMP}.json
+          echo "hospital_data.json copied with timestamp: ${TIMESTAMP}."
 
-      - name: Commit and push if hospital_data.json changed
+      - name: Commit and push if changes detected
         if: steps.file_check.outputs.changed == 'true'
         run: |
           git config --global user.email "actions@github.com"
           git config --global user.name "GitHub Actions"
-          git commit -m "Update hospital_data.json with timestamp: ${timestamp}" -a || echo "No changes to commit"
+          git commit -m "Update hospital_data.json with timestamp: ${TIMESTAMP}"
           git push
+
 
