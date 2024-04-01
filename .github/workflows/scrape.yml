@@ -1,0 +1,66 @@
+name: Scrape latest hospital data
+
+on:
+  push:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 */1 * * *' # At minute 15 past every hour
+
+jobs:
+  scheduled:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out this repo
+        uses: actions/checkout@v3
+        run: echo "Checking out the repository"
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+        run: echo "Python setup complete"
+          
+      - name: Install dependencies
+        run: |
+          echo "Installing dependencies..."
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4 gitpython sqlite-utils
+          echo "Dependencies installed"
+      
+      - name: Fetch latest data
+        run: |
+          echo "Fetching latest hospital data..."
+          python scrape_hospital_data.py
+          echo "Data fetch complete"
+
+      - name: Check if hospital_data.json has changed
+        id: file_check
+        run: |
+          echo "Checking for changes in hospital_data.json..."
+          git diff --name-only | grep hospital_data.json && echo "::set-output name=changed::true" || echo "::set-output name=changed::false"
+          if [ ${{ steps.file_check.outputs.changed }} == 'true' ]; then
+            echo "Changes detected in hospital_data.json"
+          else
+            echo "No changes detected in hospital_data.json"
+          fi
+
+      - name: Copy hospital_data.json with timestamp if changed
+        if: steps.file_check.outputs.changed == 'true'
+        run: |
+          echo "Copying hospital_data.json with timestamp..."
+          mkdir -p data
+          timestamp=$(date -u +'%Y%m%d%H%M%S')
+          cp hospital_data.json data/hospital_data_${timestamp}.json
+          echo "hospital_data.json copied with timestamp"
+
+      - name: Commit and push if it changed
+        if: steps.file_check.outputs.changed == 'true'
+        run: |
+          echo "Configuring git user..."
+          git config user.name "Automated"
+          git config user.email "actions@users.noreply.github.com"
+          echo "Committing changes..."
+          git commit -m "Latest hospital data: $(date -u)"
+          echo "Pushing to repository..."
+          git push
+          echo "Changes pushed"
